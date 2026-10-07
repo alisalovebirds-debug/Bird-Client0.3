@@ -6,10 +6,6 @@ plugins {
 version = project.mod_version
 group = project.maven_group
 
-base {
-    archivesName = project.archives_base_name
-}
-
 repositories {
     maven { name = 'Fabric'; url = 'https://maven.fabricmc.net/' }
 }
@@ -38,9 +34,11 @@ java {
     targetCompatibility = JavaVersion.VERSION_21
 }
 
-jar {
+tasks.jar {
+    archiveBaseName.set(project.archives_base_name)
+
     from('LICENSE') {
-        rename { "${it}_${project.archivesBaseName}" }
+        rename { "${it}_${project.archives_base_name}" }
     }
 }
 
