@@ -1,1 +1,22 @@
-
+{
+  "schemaVersion": 1,
+  "id": "birdclient",
+  "version": "${version}",
+  "name": "Bird Client",
+  "description": "Bird Client for Minecraft",
+  "authors": [
+    "Bird"
+  ],
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.birdclient.BirdClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
