@@ -45,19 +45,40 @@ public final class BirdScreen extends Screen {
             "Keybinds"
     };
 
+    /*
+     * Only real module currently added.
+     *
+     * More modules can be added here later.
+     */
     private final String[] moduleNames = {
-            "Sprint Assist",
-            "Velocity",
-            "Auto Jump",
-            "FPS Display",
-            "Fullbright",
-            "Crosshair",
-            "Hit Color",
-            "Keystrokes"
+            "TriggerBot"
+    };
+
+    /*
+     * Which category each module belongs to.
+     *
+     * 0 = Combat
+     * 1 = Utility
+     * 2 = Movement
+     * 3 = Misc
+     * 4 = Tools
+     * 5 = Visual
+     */
+    private final int[] moduleCategories = {
+            0
     };
 
     private final List<Boolean> enabled = new ArrayList<>();
     private final List<Boolean> favorites = new ArrayList<>();
+
+    /*
+     * TriggerBot settings.
+     *
+     * These are UI/settings values only.
+     */
+    private int triggerBotDelay = 100;
+    private int triggerBotSlot = 1;
+    private boolean triggerBotWeaponsOnly = false;
 
     private TopTab topTab = TopTab.MODULES;
 
@@ -69,6 +90,11 @@ public final class BirdScreen extends Screen {
 
     private int selectedModule = -1;
     private boolean showingSettings = false;
+
+    /*
+     * Vertical scrolling for the module list.
+     */
+    private int moduleScroll = 0;
 
     public BirdScreen() {
         super(Text.literal("Bird Client"));
@@ -297,7 +323,6 @@ public final class BirdScreen extends Screen {
 
         for (int i = 0; i < categories.length; i++) {
 
-            // Smaller category rows.
             int rowY = cursorY + i * 32;
 
             boolean hover =
@@ -314,6 +339,7 @@ public final class BirdScreen extends Screen {
             }
 
             if (selected) {
+
                 ctx.fill(
                         x + 9,
                         rowY - 4,
@@ -329,7 +355,9 @@ public final class BirdScreen extends Screen {
                         rowY + 25,
                         ACCENT
                 );
+
             } else if (hover) {
+
                 ctx.fill(
                         x + 9,
                         rowY - 4,
@@ -396,6 +424,7 @@ public final class BirdScreen extends Screen {
                     mouseY < rowY + 25;
 
             if (hover) {
+
                 hoveredGeneral = i;
 
                 ctx.fill(
@@ -459,6 +488,7 @@ public final class BirdScreen extends Screen {
                     mouseY <= y + 38;
 
             if (hover && !selected) {
+
                 ctx.fill(
                         tabX - 8,
                         y + 9,
@@ -478,6 +508,7 @@ public final class BirdScreen extends Screen {
             );
 
             if (selected) {
+
                 ctx.fill(
                         tabX,
                         y + 36,
@@ -550,8 +581,6 @@ public final class BirdScreen extends Screen {
             int mouseX,
             int mouseY
     ) {
-
-        // Show module settings instead of the module list.
         if (
                 showingSettings &&
                 selectedModule >= 0
@@ -574,21 +603,26 @@ public final class BirdScreen extends Screen {
 
         if (topTab == TopTab.MODULES) {
 
-            title =
-                    categories[selectedCategory]
-                            + " Modules";
+            title = categories[selectedCategory];
+
+            int categoryCount =
+                    countModulesInCategory(
+                            selectedCategory
+                    );
 
             subtitle =
-                    moduleNames.length +
-                    " modules · " +
+                    categoryCount +
+                    (categoryCount == 1
+                            ? " module"
+                            : " modules") +
+                    " · " +
                     countEnabled() +
                     " enabled";
 
-        } else if (
-                topTab == TopTab.FAVORITES
-        ) {
+        } else if (topTab == TopTab.FAVORITES) {
 
             title = "Favorites";
+
             subtitle =
                     countFavorites() +
                     " favorite modules";
@@ -596,6 +630,7 @@ public final class BirdScreen extends Screen {
         } else {
 
             title = "Appearance";
+
             subtitle =
                     "Customize the Bird Client look";
         }
@@ -617,10 +652,7 @@ public final class BirdScreen extends Screen {
                 false
         );
 
-        if (
-                topTab ==
-                        TopTab.APPEARANCE
-        ) {
+        if (topTab == TopTab.APPEARANCE) {
 
             drawAppearance(
                     ctx,
@@ -634,26 +666,57 @@ public final class BirdScreen extends Screen {
             return;
         }
 
-        int cardY = y + 54;
+        /*
+         * MODULE VIEW
+         *
+         * There is intentionally NO extra
+         * "Combat Modules" / "Movement Modules"
+         * text here.
+         *
+         * The sidebar already tells us the category.
+         */
 
-        // Smaller cards.
+        int listTop = y + 54;
+        int listBottom = y + h - 10;
+
+        /*
+         * Clip the module list so cards stay inside
+         * the scrollable area.
+         */
+        ctx.enableScissor(
+                x + 20,
+                listTop,
+                x + w - 20,
+                listBottom
+        );
+
+        int cardY =
+                listTop -
+                moduleScroll;
+
         int cardH = 48;
         int gap = 7;
 
         int visibleIndex = 0;
 
-        for (
-                int i = 0;
-                i < moduleNames.length;
-                i++
-        ) {
+        for (int i = 0; i < moduleNames.length; i++) {
 
-            if (
-                    topTab ==
-                            TopTab.FAVORITES
-                            &&
-                    !favorites.get(i)
-            ) {
+            boolean shouldShow;
+
+            if (topTab == TopTab.FAVORITES) {
+
+                shouldShow =
+                        favorites.get(i);
+
+            } else {
+
+                shouldShow =
+                        moduleCategories[i]
+                                ==
+                                selectedCategory;
+            }
+
+            if (!shouldShow) {
                 continue;
             }
 
@@ -664,120 +727,245 @@ public final class BirdScreen extends Screen {
 
             visibleIndex++;
 
-            if (
-                    cy >
-                            y + h - 20
-            ) {
-                break;
-            }
-
-            boolean hover =
-                    mouseX >= x + 28 &&
-                    mouseX <= x + w - 28 &&
-                    mouseY >= cy &&
-                    mouseY <= cy + cardH;
-
-            if (hover) {
-                hoveredModule = i;
-            }
-
-            int fill =
-                    hover
-                            ? CARD_HOVER
-                            : CARD;
-
-            ctx.fill(
-                    x + 28,
-                    cy,
-                    x + w - 28,
-                    cy + cardH,
-                    fill
-            );
-
-            ctx.fill(
-                    x + 28,
-                    cy,
-                    x + w - 28,
-                    cy + 1,
-                    BORDER
-            );
-
-            ctx.fill(
-                    x + 28,
-                    cy + cardH - 1,
-                    x + w - 28,
-                    cy + cardH,
-                    BORDER
-            );
-
-            // Module name.
-            ctx.drawTextWithShadow(
-                    textRenderer,
-                    moduleNames[i],
-                    x + 42,
-                    cy + 8,
-                    TEXT
-            );
-
-            // Description.
-            ctx.drawText(
-                    textRenderer,
-                    description(moduleNames[i]),
-                    x + 42,
-                    cy + 27,
-                    MUTED,
-                    false
-            );
-
-            // Favorite star.
-            ctx.drawText(
-                    textRenderer,
-                    favorites.get(i)
-                            ? "★"
-                            : "☆",
-                    x + w - 112,
-                    cy + 16,
-                    favorites.get(i)
-                            ? ACCENT
-                            : MUTED,
-                    false
-            );
-
-            // Settings arrow.
-            ctx.drawText(
-                    textRenderer,
-                    "›",
-                    x + w - 82,
-                    cy + 15,
-                    MUTED,
-                    false
-            );
-
-            // Toggle.
-            drawToggle(
+            drawModuleCard(
                     ctx,
-                    x + w - 55,
-                    cy + 16,
-                    enabled.get(i)
+                    x,
+                    w,
+                    cy,
+                    cardH,
+                    i,
+                    mouseX,
+                    mouseY
             );
         }
 
-        if (
-                topTab ==
-                        TopTab.FAVORITES
-                &&
-                countFavorites() == 0
-        ) {
+        ctx.disableScissor();
+
+        int shownCount =
+                topTab == TopTab.FAVORITES
+                        ? countFavorites()
+                        : countModulesInCategory(
+                                selectedCategory
+                        );
+
+        if (shownCount == 0) {
 
             ctx.drawText(
                     textRenderer,
-                    "No favorite modules yet.",
+                    topTab == TopTab.FAVORITES
+                            ? "No favorite modules yet."
+                            : "No modules in this category yet.",
                     x + 28,
-                    y + 75,
+                    listTop + 20,
                     MUTED,
                     false
             );
         }
+
+        /*
+         * Scroll bar.
+         */
+        drawScrollBar(
+                ctx,
+                x,
+                y,
+                w,
+                h,
+                shownCount
+        );
+    }
+
+    private void drawModuleCard(
+            DrawContext ctx,
+            int x,
+            int w,
+            int cy,
+            int cardH,
+            int moduleIndex,
+            int mouseX,
+            int mouseY
+    ) {
+        int cardLeft = x + 28;
+        int cardRight = x + w - 28;
+
+        boolean hover =
+                mouseX >= cardLeft &&
+                mouseX <= cardRight &&
+                mouseY >= cy &&
+                mouseY <= cy + cardH;
+
+        if (hover) {
+            hoveredModule = moduleIndex;
+        }
+
+        ctx.fill(
+                cardLeft,
+                cy,
+                cardRight,
+                cy + cardH,
+                hover
+                        ? CARD_HOVER
+                        : CARD
+        );
+
+        ctx.fill(
+                cardLeft,
+                cy,
+                cardRight,
+                cy + 1,
+                BORDER
+        );
+
+        ctx.fill(
+                cardLeft,
+                cy + cardH - 1,
+                cardRight,
+                cy + cardH,
+                BORDER
+        );
+
+        ctx.drawTextWithShadow(
+                textRenderer,
+                moduleNames[moduleIndex],
+                cardLeft + 14,
+                cy + 8,
+                TEXT
+        );
+
+        ctx.drawText(
+                textRenderer,
+                description(moduleNames[moduleIndex]),
+                cardLeft + 14,
+                cy + 27,
+                MUTED,
+                false
+        );
+
+        /*
+         * Favorite star.
+         */
+        ctx.drawText(
+                textRenderer,
+                favorites.get(moduleIndex)
+                        ? "★"
+                        : "☆",
+                cardRight - 112,
+                cy + 16,
+                favorites.get(moduleIndex)
+                        ? ACCENT
+                        : MUTED,
+                false
+        );
+
+        /*
+         * Settings arrow.
+         */
+        ctx.drawText(
+                textRenderer,
+                "›",
+                cardRight - 82,
+                cy + 15,
+                MUTED,
+                false
+        );
+
+        /*
+         * Enable toggle.
+         */
+        drawToggle(
+                ctx,
+                cardRight - 55,
+                cy + 16,
+                enabled.get(moduleIndex)
+        );
+    }
+
+    private void drawScrollBar(
+            DrawContext ctx,
+            int x,
+            int y,
+            int w,
+            int h,
+            int itemCount
+    ) {
+        int visibleItems = 7;
+
+        if (itemCount <= visibleItems) {
+            return;
+        }
+
+        int trackTop = y + 54;
+        int trackBottom = y + h - 10;
+        int trackHeight =
+                trackBottom - trackTop;
+
+        ctx.fill(
+                x + w - 14,
+                trackTop,
+                x + w - 10,
+                trackBottom,
+                0xFF151B2B
+        );
+
+        int maxScroll =
+                getMaxScroll(
+                        itemCount
+                );
+
+        float progress =
+                maxScroll <= 0
+                        ? 0
+                        : (float) moduleScroll
+                        / maxScroll;
+
+        int thumbHeight =
+                Math.max(
+                        30,
+                        trackHeight *
+                                visibleItems /
+                                itemCount
+                );
+
+        int thumbTravel =
+                trackHeight -
+                thumbHeight;
+
+        int thumbY =
+                trackTop +
+                (int) (
+                        thumbTravel *
+                        progress
+                );
+
+        ctx.fill(
+                x + w - 14,
+                thumbY,
+                x + w - 10,
+                thumbY + thumbHeight,
+                ACCENT
+        );
+    }
+
+    private int getMaxScroll(
+            int itemCount
+    ) {
+        int cardH = 48;
+        int gap = 7;
+        int visibleItems = 7;
+
+        int contentHeight =
+                itemCount *
+                        (cardH + gap);
+
+        int visibleHeight =
+                visibleItems *
+                        (cardH + gap);
+
+        return Math.max(
+                0,
+                contentHeight -
+                        visibleHeight
+        );
     }
 
     private void drawModuleSettings(
@@ -802,14 +990,16 @@ public final class BirdScreen extends Screen {
 
         ctx.drawText(
                 textRenderer,
-                "Customize how this module behaves.",
+                "Customize this module.",
                 x + 28,
                 y + 27,
                 MUTED,
                 false
         );
 
-        // Back button.
+        /*
+         * Back button.
+         */
         int backX =
                 x + w - 100;
 
@@ -845,16 +1035,19 @@ public final class BirdScreen extends Screen {
                 false
         );
 
-        // Enabled card.
         int cardX = x + 28;
-        int cardY = y + 58;
         int cardW = w - 56;
+
+        /*
+         * Enabled.
+         */
+        int enabledY = y + 58;
 
         ctx.fill(
                 cardX,
-                cardY,
+                enabledY,
                 cardX + cardW,
-                cardY + 70,
+                enabledY + 70,
                 CARD
         );
 
@@ -862,7 +1055,7 @@ public final class BirdScreen extends Screen {
                 textRenderer,
                 "Module enabled",
                 cardX + 15,
-                cardY + 12,
+                enabledY + 12,
                 TEXT
         );
 
@@ -870,7 +1063,7 @@ public final class BirdScreen extends Screen {
                 textRenderer,
                 "Turn this module on or off.",
                 cardX + 15,
-                cardY + 32,
+                enabledY + 32,
                 MUTED,
                 false
         );
@@ -878,65 +1071,207 @@ public final class BirdScreen extends Screen {
         drawToggle(
                 ctx,
                 cardX + cardW - 45,
-                cardY + 18,
+                enabledY + 18,
                 enabled.get(selectedModule)
         );
 
-        // Example delay setting.
-        int delayY =
-                cardY + 90;
+        /*
+         * TRIGGERBOT SETTINGS
+         */
+        if (selectedModule == 0) {
 
-        ctx.fill(
-                cardX,
-                delayY,
-                cardX + cardW,
-                delayY + 75,
-                CARD
-        );
+            /*
+             * Delay.
+             */
+            int delayY =
+                    enabledY + 90;
 
-        ctx.drawTextWithShadow(
-                textRenderer,
-                "Delay",
-                cardX + 15,
-                delayY + 12,
-                TEXT
-        );
+            ctx.fill(
+                    cardX,
+                    delayY,
+                    cardX + cardW,
+                    delayY + 82,
+                    CARD
+            );
 
-        ctx.drawText(
-                textRenderer,
-                "100 ms",
-                cardX + 15,
-                delayY + 34,
-                MUTED,
-                false
-        );
+            ctx.drawTextWithShadow(
+                    textRenderer,
+                    "Delay",
+                    cardX + 15,
+                    delayY + 12,
+                    TEXT
+            );
 
-        // Slider track.
-        ctx.fill(
-                cardX + 100,
-                delayY + 40,
-                cardX + cardW - 20,
-                delayY + 44,
-                BORDER
-        );
+            ctx.drawText(
+                    textRenderer,
+                    triggerBotDelay + " / 100",
+                    cardX + 15,
+                    delayY + 34,
+                    MUTED,
+                    false
+            );
 
-        // Slider fill.
-        ctx.fill(
-                cardX + 100,
-                delayY + 40,
-                cardX + 180,
-                delayY + 44,
-                ACCENT
-        );
+            int sliderLeft =
+                    cardX + 110;
 
-        // Slider knob.
-        ctx.fill(
-                cardX + 176,
-                delayY + 35,
-                cardX + 184,
-                delayY + 49,
-                ACCENT
-        );
+            int sliderRight =
+                    cardX + cardW - 20;
+
+            int sliderY =
+                    delayY + 41;
+
+            ctx.fill(
+                    sliderLeft,
+                    sliderY,
+                    sliderRight,
+                    sliderY + 4,
+                    BORDER
+            );
+
+            float progress =
+                    (triggerBotDelay - 1)
+                            / 99.0f;
+
+            int knobX =
+                    sliderLeft +
+                    (int) (
+                            (sliderRight -
+                                    sliderLeft)
+                                    * progress
+                    );
+
+            ctx.fill(
+                    sliderLeft,
+                    sliderY,
+                    knobX,
+                    sliderY + 4,
+                    ACCENT
+            );
+
+            ctx.fill(
+                    knobX - 4,
+                    sliderY - 5,
+                    knobX + 4,
+                    sliderY + 9,
+                    ACCENT
+            );
+
+            /*
+             * Slot restriction.
+             */
+            int slotY =
+                    delayY + 94;
+
+            ctx.fill(
+                    cardX,
+                    slotY,
+                    cardX + cardW,
+                    slotY + 70,
+                    CARD
+            );
+
+            ctx.drawTextWithShadow(
+                    textRenderer,
+                    "Slot Restriction",
+                    cardX + 15,
+                    slotY + 12,
+                    TEXT
+            );
+
+            ctx.drawText(
+                    textRenderer,
+                    "Hotbar slot: " +
+                            triggerBotSlot,
+                    cardX + 15,
+                    slotY + 34,
+                    MUTED,
+                    false
+            );
+
+            /*
+             * Slot - button.
+             */
+            int minusX =
+                    cardX + cardW - 95;
+
+            ctx.fill(
+                    minusX,
+                    slotY + 18,
+                    minusX + 25,
+                    slotY + 43,
+                    0xFF20273A
+            );
+
+            ctx.drawText(
+                    textRenderer,
+                    "−",
+                    minusX + 8,
+                    slotY + 21,
+                    TEXT,
+                    false
+            );
+
+            /*
+             * Slot + button.
+             */
+            int plusX =
+                    cardX + cardW - 60;
+
+            ctx.fill(
+                    plusX,
+                    slotY + 18,
+                    plusX + 25,
+                    slotY + 43,
+                    0xFF20273A
+            );
+
+            ctx.drawText(
+                    textRenderer,
+                    "+",
+                    plusX + 8,
+                    slotY + 21,
+                    TEXT,
+                    false
+            );
+
+            /*
+             * Weapons Only.
+             */
+            int weaponY =
+                    slotY + 82;
+
+            ctx.fill(
+                    cardX,
+                    weaponY,
+                    cardX + cardW,
+                    weaponY + 70,
+                    CARD
+            );
+
+            ctx.drawTextWithShadow(
+                    textRenderer,
+                    "Weapons Only",
+                    cardX + 15,
+                    weaponY + 12,
+                    TEXT
+            );
+
+            ctx.drawText(
+                    textRenderer,
+                    "Restrict this setting to weapon items.",
+                    cardX + 15,
+                    weaponY + 32,
+                    MUTED,
+                    false
+            );
+
+            drawToggle(
+                    ctx,
+                    cardX + cardW - 45,
+                    weaponY + 18,
+                    triggerBotWeaponsOnly
+            );
+        }
     }
 
     private void drawAppearance(
@@ -1048,6 +1383,21 @@ public final class BirdScreen extends Screen {
         return count;
     }
 
+    private int countModulesInCategory(
+            int category
+    ) {
+        int count = 0;
+
+        for (int i = 0; i < moduleNames.length; i++) {
+
+            if (moduleCategories[i] == category) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
     private String categoryIcon(
             String name
     ) {
@@ -1080,29 +1430,8 @@ public final class BirdScreen extends Screen {
     ) {
         return switch (name) {
 
-            case "Sprint Assist" ->
-                    "Keeps your movement feeling smooth and responsive.";
-
-            case "Velocity" ->
-                    "Client-side movement feedback and display options.";
-
-            case "Auto Jump" ->
-                    "A visual setting for movement preferences.";
-
-            case "FPS Display" ->
-                    "Shows your current frames per second.";
-
-            case "Fullbright" ->
-                    "Raises the visual brightness of dark areas.";
-
-            case "Crosshair" ->
-                    "Customize the appearance of your crosshair.";
-
-            case "Hit Color" ->
-                    "Choose a color for visual hit feedback.";
-
-            case "Keystrokes" ->
-                    "Displays your keyboard inputs on screen.";
+            case "TriggerBot" ->
+                    "TriggerBot settings and configuration.";
 
             default ->
                     "Bird Client module.";
@@ -1164,7 +1493,6 @@ public final class BirdScreen extends Screen {
         /*
          * SETTINGS SCREEN
          */
-
         if (
                 showingSettings &&
                 selectedModule >= 0
@@ -1184,7 +1512,6 @@ public final class BirdScreen extends Screen {
             int backY =
                     mainY + 5;
 
-            // Back button.
             if (
                     inside(
                             mouseX,
@@ -1197,15 +1524,16 @@ public final class BirdScreen extends Screen {
             ) {
                 showingSettings = false;
                 selectedModule = -1;
-
                 return true;
             }
 
-            // Enable/disable from settings.
+            /*
+             * Enable toggle.
+             */
             int cardX =
                     mainX + 28;
 
-            int cardY =
+            int enabledY =
                     mainY + 58;
 
             int cardW =
@@ -1216,12 +1544,11 @@ public final class BirdScreen extends Screen {
                             mouseX,
                             mouseY,
                             cardX,
-                            cardY,
+                            enabledY,
                             cardX + cardW,
-                            cardY + 70
+                            enabledY + 70
                     )
             ) {
-
                 if (button == 0) {
                     enabled.set(
                             selectedModule,
@@ -1234,13 +1561,157 @@ public final class BirdScreen extends Screen {
                 return true;
             }
 
+            /*
+             * TriggerBot settings.
+             */
+            if (selectedModule == 0) {
+
+                /*
+                 * Delay slider.
+                 */
+                int delayY =
+                        enabledY + 90;
+
+                int sliderLeft =
+                        cardX + 110;
+
+                int sliderRight =
+                        cardX + cardW - 20;
+
+                int sliderY =
+                        delayY + 41;
+
+                if (
+                        inside(
+                                mouseX,
+                                mouseY,
+                                sliderLeft - 5,
+                                sliderY - 10,
+                                sliderRight + 5,
+                                sliderY + 15
+                        )
+                ) {
+                    if (button == 0) {
+
+                        double progress =
+                                (mouseX -
+                                        sliderLeft)
+                                        /
+                                        (double)
+                                                (
+                                                        sliderRight -
+                                                        sliderLeft
+                                                );
+
+                        progress =
+                                Math.max(
+                                        0,
+                                        Math.min(
+                                                1,
+                                                progress
+                                        )
+                                );
+
+                        triggerBotDelay =
+                                1 +
+                                (int)
+                                        Math.round(
+                                                progress *
+                                                        99
+                                        );
+                    }
+
+                    return true;
+                }
+
+                /*
+                 * Slot restriction -.
+                 */
+                int slotY =
+                        delayY + 94;
+
+                int minusX =
+                        cardX + cardW - 95;
+
+                if (
+                        inside(
+                                mouseX,
+                                mouseY,
+                                minusX,
+                                slotY + 18,
+                                minusX + 25,
+                                slotY + 43
+                        )
+                ) {
+                    if (button == 0) {
+                        triggerBotSlot =
+                                Math.max(
+                                        1,
+                                        triggerBotSlot - 1
+                                );
+                    }
+
+                    return true;
+                }
+
+                /*
+                 * Slot restriction +.
+                 */
+                int plusX =
+                        cardX + cardW - 60;
+
+                if (
+                        inside(
+                                mouseX,
+                                mouseY,
+                                plusX,
+                                slotY + 18,
+                                plusX + 25,
+                                slotY + 43
+                        )
+                ) {
+                    if (button == 0) {
+                        triggerBotSlot =
+                                Math.min(
+                                        9,
+                                        triggerBotSlot + 1
+                                );
+                    }
+
+                    return true;
+                }
+
+                /*
+                 * Weapons Only.
+                 */
+                int weaponY =
+                        slotY + 82;
+
+                if (
+                        inside(
+                                mouseX,
+                                mouseY,
+                                cardX,
+                                weaponY,
+                                cardX + cardW,
+                                weaponY + 70
+                        )
+                ) {
+                    if (button == 0) {
+                        triggerBotWeaponsOnly =
+                                !triggerBotWeaponsOnly;
+                    }
+
+                    return true;
+                }
+            }
+
             return true;
         }
 
         /*
          * TOP TABS
          */
-
         int tabX =
                 left + sideW + 28;
 
@@ -1267,6 +1738,8 @@ public final class BirdScreen extends Screen {
                 if (button == 0) {
                     topTab =
                             TopTab.values()[i];
+
+                    moduleScroll = 0;
                 }
 
                 return true;
@@ -1278,7 +1751,6 @@ public final class BirdScreen extends Screen {
         /*
          * SIDEBAR CATEGORIES
          */
-
         int cursorY =
                 top + 74 + 22;
 
@@ -1305,6 +1777,7 @@ public final class BirdScreen extends Screen {
                 if (button == 0) {
                     selectedCategory = i;
                     topTab = TopTab.MODULES;
+                    moduleScroll = 0;
                 }
 
                 return true;
@@ -1314,13 +1787,9 @@ public final class BirdScreen extends Screen {
         /*
          * MODULES
          */
-
         if (
-                topTab ==
-                        TopTab.MODULES
-                ||
-                topTab ==
-                        TopTab.FAVORITES
+                topTab == TopTab.MODULES ||
+                topTab == TopTab.FAVORITES
         ) {
 
             int mainX =
@@ -1329,8 +1798,12 @@ public final class BirdScreen extends Screen {
             int mainY =
                     top + 82;
 
-            int cardY =
+            int listTop =
                     mainY + 54;
+
+            int cardY =
+                    listTop -
+                    moduleScroll;
 
             int cardH = 48;
             int gap = 7;
@@ -1343,12 +1816,22 @@ public final class BirdScreen extends Screen {
                     i++
             ) {
 
+                boolean shouldShow;
+
                 if (
                         topTab ==
                                 TopTab.FAVORITES
-                        &&
-                        !favorites.get(i)
                 ) {
+                    shouldShow =
+                            favorites.get(i);
+                } else {
+                    shouldShow =
+                            moduleCategories[i]
+                                    ==
+                                    selectedCategory;
+                }
+
+                if (!shouldShow) {
                     continue;
                 }
 
@@ -1381,7 +1864,6 @@ public final class BirdScreen extends Screen {
                 /*
                  * STAR
                  */
-
                 int starLeft =
                         cardRight - 125;
 
@@ -1406,7 +1888,6 @@ public final class BirdScreen extends Screen {
                 /*
                  * RIGHT CLICK = SETTINGS
                  */
-
                 if (button == 1) {
 
                     selectedModule = i;
@@ -1418,7 +1899,6 @@ public final class BirdScreen extends Screen {
                 /*
                  * LEFT CLICK = TOGGLE
                  */
-
                 if (button == 0) {
 
                     enabled.set(
@@ -1434,6 +1914,109 @@ public final class BirdScreen extends Screen {
         return super.mouseClicked(
                 click,
                 doubled
+        );
+    }
+
+    @Override
+    public boolean mouseScrolled(
+            double mouseX,
+            double mouseY,
+            double horizontalAmount,
+            double verticalAmount
+    ) {
+        if (
+                showingSettings ||
+                topTab == TopTab.APPEARANCE
+        ) {
+            return super.mouseScrolled(
+                    mouseX,
+                    mouseY,
+                    horizontalAmount,
+                    verticalAmount
+            );
+        }
+
+        int panelW =
+                Math.min(
+                        900,
+                        width - 40
+                );
+
+        int panelH =
+                Math.min(
+                        560,
+                        height - 40
+                );
+
+        int left =
+                (width - panelW) / 2;
+
+        int top =
+                (height - panelH) / 2;
+
+        int sideW = 175;
+
+        int mainX =
+                left + sideW;
+
+        int mainY =
+                top + 82;
+
+        int mainW =
+                panelW - sideW;
+
+        int listTop =
+                mainY + 54;
+
+        int listBottom =
+                mainY + panelH - 92;
+
+        /*
+         * Only scroll when mouse is over
+         * the module list.
+         */
+        if (
+                mouseX >= mainX + 20 &&
+                mouseX <= mainX + mainW - 20 &&
+                mouseY >= listTop &&
+                mouseY <= listBottom
+        ) {
+
+            int itemCount;
+
+            if (topTab == TopTab.FAVORITES) {
+                itemCount = countFavorites();
+            } else {
+                itemCount =
+                        countModulesInCategory(
+                                selectedCategory
+                        );
+            }
+
+            int maxScroll =
+                    getMaxScroll(itemCount);
+
+            moduleScroll -=
+                    (int)
+                            (verticalAmount * 25);
+
+            moduleScroll =
+                    Math.max(
+                            0,
+                            Math.min(
+                                    maxScroll,
+                                    moduleScroll
+                            )
+                    );
+
+            return true;
+        }
+
+        return super.mouseScrolled(
+                mouseX,
+                mouseY,
+                horizontalAmount,
+                verticalAmount
         );
     }
 
@@ -1483,4 +2066,4 @@ public final class BirdScreen extends Screen {
     public boolean shouldPause() {
         return false;
     }
-}
+    }
